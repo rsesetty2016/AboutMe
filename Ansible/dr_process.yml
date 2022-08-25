@@ -1,0 +1,213 @@
+- hosts: "{{cuboid_repo.host}}"
+  gather_facts: no
+  vars_files:
+     - ./disaster-recovery/vars/main.yml
+  tasks:
+      - name: "Get config files from repository server"
+        fetch:
+            src: "{{cuboid_repo.dr_config_dir}}/{{client}}/{{env}}/hosts.txt"
+            dest: "{{cuboid_data_dir}}/"
+            flat: yes
+            validate_checksum: no
+        become: yes
+        become_user: root
+        become_method: sudo
+
+
+- hosts: localhost
+  gather_facts: no
+  vars_files:
+      - ./disaster-recovery/vars/main.yml
+  tasks:
+
+      - name: "Get AI hosts"
+        shell: "cat {{cuboid_data_dir}}/hosts.txt | grep AI | cut -f 3 -d:"
+        register: ai_hosts_list
+
+      - name:
+        set_fact:
+            ai_hosts: "{{ai_hosts_list.stdout_lines[0]}}"
+
+      - name: "Get ES hosts"
+        shell: "cat {{cuboid_data_dir}}/hosts.txt | grep ES | cut -f 3 -d:"
+        register: es_hosts_list
+
+      - name:
+        set_fact:
+            es_hosts: "{{es_hosts_list.stdout_lines[0]}}"
+
+      - name: "Get ADM hosts"
+        shell: "cat {{cuboid_data_dir}}/hosts.txt | grep ADM | cut -f 3 -d:"
+        register: adm_hosts_list
+
+      - name:
+        set_fact:
+            adm_hosts: "{{adm_hosts_list.stdout_lines[0]}}"
+
+      - name: "Get MSGW hosts"
+        shell: "cat {{cuboid_data_dir}}/hosts.txt | grep MSGW | cut -f 3 -d:"
+        register: msgw_hosts_list
+
+      - name:
+        set_fact:
+            msgw_hosts: "{{msgw_hosts_list.stdout_lines[0]}}"
+
+      - name: "Get SMG hosts"
+        shell: "cat {{cuboid_data_dir}}/hosts.txt | grep SMG | cut -f 3 -d:"
+        register: smg_hosts_list
+
+      - name:
+        set_fact:
+            smg_hosts: "{{smg_hosts_list.stdout_lines[0]}}"
+
+      - name: "Get AS2 hosts"
+        shell: "cat {{cuboid_data_dir}}/hosts.txt | grep AS2 | cut -f 3 -d:"
+        register: as2_hosts_list
+
+      - name:
+        set_fact:
+            as2_hosts: "{{as2_hosts_list.stdout_lines[0]}}"
+
+      - name: "Get AS2ADM hosts"
+        shell: "cat {{cuboid_data_dir}}/hosts.txt | grep AS2ADM | cut -f 3 -d:"
+        register: as2adm_hosts_list
+
+      - name:
+        set_fact:
+            as2adm_hosts: "{{as2adm_hosts_list.stdout_lines[0]}}"
+
+      - name: Make temp directory on ansible host
+        file:
+            path="cuboid/files"
+            state=directory
+            mode=0755
+
+      - name: create a zip file of data files
+        archive:
+            path: "cuboid/scripts/*"
+            dest: "cuboid/files/scripts.tar.gz"
+
+#- hosts: "{{hostvars['localhost']['ai_hosts']}}"
+#  gather_facts: no
+#  tasks:
+#      - block:
+#          - name: determine hosts that are up
+#            wait_for_connection:
+#              timeout: 10
+#            vars:
+#              ansible_connection: ssh
+#          - name: add devices with connectivity to the "running_hosts" group
+#            group_by:
+#              key: "running_hosts"
+
+- hosts: "{{hostvars['localhost']['es_hosts']}}"
+  gather_facts: no
+  vars_files:
+      - ./disaster-recovery/vars/main.yml
+  tasks:
+      - name: "run dr task handler"
+        shell: "python {{cuboid_tmp_dir}}/dr_task_handler.py dry_run={{dry_run}}"
+        args:
+          chdir: "{{cuboid_tmp_dir}}"
+          executable: /bin/bash
+        environment:
+          TERM: vt100
+        become: yes
+        become_user: root
+        become_method: sudo
+
+- hosts: "{{hostvars['localhost']['ai_hosts']}}"
+  gather_facts: no
+  vars_files:
+      - ./disaster-recovery/vars/main.yml
+  tasks:
+      - name: "run dr task handler"
+        shell: "python {{cuboid_tmp_dir}}/dr_task_handler.py dry_run={{dry_run}}"
+        args:
+          chdir: "{{cuboid_tmp_dir}}"
+          executable: /bin/bash
+        environment:
+          TERM: vt100
+        become: yes
+        become_user: root
+        become_method: sudo
+
+- hosts: "{{hostvars['localhost']['smg_hosts']}}"
+  gather_facts: no
+  vars_files:
+      - ./disaster-recovery/vars/main.yml
+  tasks:
+      - name: "run dr task handler"
+        shell: "python {{cuboid_tmp_dir}}/dr_task_handler.py dry_run={{dry_run}}"
+        args:
+          chdir: "{{cuboid_tmp_dir}}"
+          executable: /bin/bash
+        environment:
+          TERM: vt100
+        become: yes
+        become_user: root
+        become_method: sudo
+
+- hosts: "{{hostvars['localhost']['as2_hosts']}}"
+  gather_facts: no
+  vars_files:
+      - ./disaster-recovery/vars/main.yml
+  tasks:
+      - name: "run dr task handler"
+        shell: "python {{cuboid_tmp_dir}}/dr_task_handler.py dry_run={{dry_run}}"
+        args:
+          chdir: "{{cuboid_tmp_dir}}"
+          executable: /bin/bash
+        environment:
+          TERM: vt100
+        become: yes
+        become_user: root
+        become_method: sudo
+
+- hosts: "{{hostvars['localhost']['adm_hosts']}}"
+  gather_facts: no
+  vars_files:
+      - ./disaster-recovery/vars/main.yml
+  tasks:
+      - name: "run dr task handler"
+        shell: "python {{cuboid_tmp_dir}}/dr_task_handler.py dry_run={{dry_run}}"
+        args:
+          chdir: "{{cuboid_tmp_dir}}"
+          executable: /bin/bash
+        environment:
+          TERM: vt100
+        become: yes
+        become_user: root
+        become_method: sudo
+
+- hosts: "{{hostvars['localhost']['msgw_hosts']}}"
+  gather_facts: no
+  vars_files:
+      - ./disaster-recovery/vars/main.yml
+  tasks:
+      - name: "run dr task handler"
+        shell: "python {{cuboid_tmp_dir}}/dr_task_handler.py dry_run={{dry_run}}"
+        args:
+          chdir: "{{cuboid_tmp_dir}}"
+          executable: /bin/bash
+        environment:
+          TERM: vt100
+        become: yes
+        become_user: root
+        become_method: sudo
+
+- hosts: "{{hostvars['localhost']['as2adm_hosts']}}"
+  gather_facts: no
+  vars_files:
+      - ./disaster-recovery/vars/main.yml
+  tasks:
+      - name: "run dr task handler"
+        shell: "python {{cuboid_tmp_dir}}/dr_task_handler.py dry_run={{dry_run}}"
+        args:
+          chdir: "{{cuboid_tmp_dir}}"
+          executable: /bin/bash
+        environment:
+          TERM: vt100
+        become: yes
+        become_user: root
+        become_method: sudo

@@ -1,0 +1,123 @@
+---
+
+- hosts: rr_hosts
+  gather_facts: no
+  vars:
+       ansible_become_password: "{{ansible_password}}"
+  tasks:
+     - setup:
+       register: a_facts
+
+     - name: gather facts
+       copy:
+           content: "{{a_facts.ansible_facts}}"
+           dest: "data/{{ansible_fqdn}}_host.json"
+       delegate_to: localhost
+
+     - name: get configuration for page file
+       win_pagefile:
+       register: page_config
+       ignore_errors: yes
+
+     - name: copy page file configuration
+       copy:
+           content: "{{page_config}}"
+           dest: "data/{{ansible_fqdn}}_page.json"
+       delegate_to: localhost
+
+     - name: get disk information
+       win_disk_facts:
+       register: disk_info
+       ignore_errors: yes
+
+     - name: copy disk file configuration
+       copy:
+           content: "{{disk_info}}"
+           dest: "data/{{ansible_fqdn}}_disks.json"
+       delegate_to: localhost
+
+#- hosts: repo_hosts
+- hosts: repo_hosts
+  gather_facts: no
+  vars:
+       ansible_become_password: "{{ansible_password}}"
+  tasks:
+     - name: get list of files to copy
+       command: ls data
+       register: list_of_files
+       delegate_to: localhost
+
+#     - name: list files
+#       debug:
+#           var: list_of_files.stdout_lines
+
+     - name: copy data files to repository
+       win_copy:
+         src: "data/{{item}}"
+         dest: C:\Projects\InfraMon\InfraMon\scripts\data\
+       with_items: "{{list_of_files.stdout_lines}}"
+       ignore_errors: yes
+
+     - name: Copy the scripts to update database and run reports
+       win_copy:
+           src: "Common/files/{{item}}"
+           dest: C:\Projects\InfraMon\
+       with_items:
+           - nightly_cron.py
+           - track_changes.py
+           - Tracker.py
+           - track_system_changes.bat
+           - DateTime.py
+       ignore_errors: yes
+
+     - name: Update database
+       win_command: "track_system_changes.bat"
+       args:
+           chdir: C:\Projects\InfraMon\
+
+- hosts: repo_hosts_t
+  gather_facts: no
+  vars:
+       ansible_become_password: "{{ansible_password}}"
+  tasks:
+     - name: copy script to the target
+       win_copy:
+          src: "audits/files/{{item}}"
+          dest: c:\temp\
+       with_items:
+          - getVolumes.ps1
+          - getDotNetVersions.ps1
+       ignore_errors: yes
+
+     - name: get disk volume information
+       become_method: runas
+       win_command: "powershell.exe -ExecutionPolicy ByPass -File c:\\temp\\{{item}}"
+       args:
+           chdir: c:\temp
+       become: yes
+       become_user: "{{ansible_user}}"
+       with_items:
+          - getVolumes.ps1
+          - getDotNetVersions.ps1
+       ignore_errors: yes
+
+     - name: Fetch the output file
+       fetch:
+          src: "c:\\temp\\{{item}}"
+          dest: audits/files/
+          flat: yes
+       with_items:
+          - ansible_volumes.txt
+          - ansible_dotnet.txt
+       ignore_errors: yes
+
+     - name: remove the volume list file
+       win_file:
+          path: "c:\\temp\\{{item}}"
+          state: absent
+       with_items:
+          - ansible_volumes.txt
+          - ansible_dotnet.txt
+          - getVolumes.ps1
+          - getDotNetVersions.ps1
+       ignore_errors: yes
