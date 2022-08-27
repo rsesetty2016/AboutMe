@@ -1,6 +1,14 @@
+##**OneClick**
 #### Description
-###### Background
+
 A request comes from business manager to deploy a retailer's instance to process financial transactions. A resource will be allocated to implement the solution. The resource has to gather configuration details before implementing the solution first in QA, then Preproduction and finally to Production. A typically turnaround expected was 3 weeks.
+
+**Development and Deployment was completed in 6 weeks.**
+
+###### End Results
+1. Reduced deployment time to 16-man hours from 80-man hours.
+2. Loosely tied to tools like Bladelogic
+3. Migrated off from Bladelogic to Ansible in less than 4 hours.
 
 ###### The Process
 1. Request Validations team to allocate server port (Unix Service Port), UID, GID, and Cloud UID to store transactional data.
@@ -37,5 +45,10 @@ All this process takes about 80 man hours.
 7. Provide an interface to populate custom values and schedule/unschedule "install" or "rollback" operations.
 
 ###### The Big Picture
+![1click](../images/1click.png)
 
+###### The Implementation
+1. About 6000 lines of code written in Perl
+2. Used **Bladelogic** to orchestrate the process across multiple machines
+3. 
 
