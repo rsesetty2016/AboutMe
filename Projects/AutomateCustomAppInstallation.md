@@ -1,4 +1,4 @@
-##**OneClick**
+## OneClick
 #### Description
 
 A request comes from business manager to deploy a retailer's instance to process financial transactions. A resource will be allocated to implement the solution. The resource has to gather configuration details before implementing the solution first in QA, then Preproduction and finally to Production. A typically turnaround expected was 3 weeks.
