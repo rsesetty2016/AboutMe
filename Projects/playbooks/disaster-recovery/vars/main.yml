@@ -1,0 +1,15 @@
+---
+# vars file for cuboid
+
+cuboid_data_dir: "disaster-recovery/files"
+ft: "HLL"
+cuboid_tmp_dir: "/tmp/ansible_r"
+cuboid_home_dir: "/home/cuboid"
+cuboid_data_file_list: "/tmp/cuboid_out_files.txt"
+cuboid_repo: 
+    host: "lit-vwmsm-p001.gxsonline.net"
+    dir: "/automation/stability/data/cuboid/dr"
+    scripts_dir: "/automation/stability/scripts/cuboid/bin"
+    out_dir: "/automation/stability/data/cuboid/dr"
+    dr_config_dir: "/automation/stability/scripts/cuboid/config/dr"
+    cuboid_ui_dir: "/automation/stability/scripts/cuboid/ui/assets/dr/citi"

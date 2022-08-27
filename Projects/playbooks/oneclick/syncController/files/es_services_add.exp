@@ -1,0 +1,89 @@
+#!/usr/bin/expect
+#
+set exit_status 1
+
+if {$argc != 7} {
+   send_error "ERROR: The following parameters are required:\n\n"
+   send_error "       login pw socket description host port TUN\n"
+   exit 1 }
+
+set user      [lindex $argv 0]
+set pass      [lindex $argv 1]
+set sock      [lindex $argv 2]
+set desc      [lindex $argv 3]
+set host      [lindex $argv 4]
+set port      [lindex $argv 5]
+set tun       [lindex $argv 6]
+
+set elight    [lindex $argv 28]
+send_error " User: $user\n Password: $pass\n Socket: $sock\n  Description: $desc\n Host: $host$\n Port: $port\n TUN: $tun\n"
+set prompt " (%|#|\\\$)$"
+
+if {[string compare $elight "ELIGHTACTIVE"] == 0} {
+  cd $env(HOME)
+  spawn -noecho ksh
+  send "emu edisuppemu -d\n"
+} else {
+  cd $env(HOME)
+  spawn -noecho ksh
+  send "ediswit -s\n"
+}
+set timeout 60
+expect "Exit System"
+send "$user\t$pass\r"
+expect "Exit System"
+
+set timeout 5
+send "8\r"
+expect "Previous"
+send "3\r"
+expect "Previous"
+send "3\r"
+expect "New/Amend/Delete"
+
+send "n\r"
+expect "New Socket Name"
+set timeout 25
+send "10\t$sock\r"
+expect {
+    "WARNING - The service will" {
+        set exit_status 0 }
+    "Socket already exists" {
+        if {[string compare $elight "ELIGHTACTIVE"] == 0} {
+           log_file RESULT
+           send_log "$sock already exists\n"
+           log_file
+        } else {
+           send_error "NOTE: $sock already exists\n"
+        }
+        set exit_status 0 }
+}
+set timeout 20
+send "$desc\t$host\t$port\t\t$tun\r"
+expect {
+    "New/Amend/Delete"  {
+        if {[string compare $elight "ELIGHTACTIVE"] == 0} {
+           log_file RESULT
+           send_log "$sock added successfully\n"
+           log_file
+        } else {
+           send_error "NOTE: $sock added successfully\n"
+        }
+        set exit_status 0 }
+    timeout {
+        if {[string compare $elight "ELIGHTACTIVE"] == 0} {
+           log_file RESULT
+           send_log "Timeout during add of $sock\n"
+           log_file
+        } else {
+           send_error "ERROR: Timeout during add of $sock\n"
+        }
+        close
+        wait
+        exit 1 }
+}
+
+close
+wait
+exit $exit_status
+

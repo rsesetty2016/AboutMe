@@ -1,0 +1,16 @@
+---
+# tasks file for initialize
+#
+#
+
+- name: check if another instance of installer is running
+  stat: 
+      path: "/tmp/aiRelease/.lockai"
+  register: lockai
+
+- name: Stop if another instance of installation is running
+  fail:
+      msg: "Cannot continue as another installation is in progress ..."
+  when: lockai.stat.exists == True
+
+

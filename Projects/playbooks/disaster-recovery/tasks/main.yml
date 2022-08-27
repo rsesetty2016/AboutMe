@@ -1,0 +1,80 @@
+---
+# tasks file for cuboid
+
+
+- name: Make temp directory on remote host
+  file:
+      path="{{cuboid_tmp_dir}}/{{ansible_fqdn}}"
+      state=directory
+      mode=0755
+  ignore_errors: yes
+
+- name: check if temp directory exists
+  stat:
+      path: "cuboid/config/{{ansible_fqdn}}_config.json"
+  delegate_to: localhost
+  register: temp_directory
+
+- name: Fail if temp directory does not exists
+  copy:
+     src: "{{item}}"
+     dest: "{{cuboid_tmp_dir}}"
+     mode: 0755
+  become: yes
+  become_user: root
+  become_method: sudo
+  ignore_errors: yes
+  with_items:
+     - "cuboid/config/{{ansible_fqdn}}_config.json"
+  when: temp_directory.stat.exists == true
+
+
+- name: Copy required files to target host
+  copy:
+     src: "{{item}}"
+     dest: "{{cuboid_tmp_dir}}"
+     mode: 0755
+  become: yes
+  become_user: root
+  become_method: sudo
+  ignore_errors: yes
+  with_items:
+     - "cuboid/files/scripts.tar.gz"
+
+- name: extract repository
+  unarchive:
+      src: "{{cuboid_tmp_dir}}/scripts.tar.gz"
+      dest: "{{cuboid_tmp_dir}}"
+#      extra_opts: [--strip-components=2]
+      mode: 0755
+      remote_src: yes
+  ignore_errors: yes
+
+- name: Run report script to see any differences
+  shell: "./master_script.py"
+  args:
+    chdir: "{{cuboid_tmp_dir}}"
+    executable: /bin/bash
+  environment:
+    TERM: vt100
+  become: yes
+  become_user: root
+  become_method: sudo
+
+- name: copy files to ansible server
+  fetch:
+      src: "{{cuboid_tmp_dir}}/{{ ansible_fqdn }}_host_data.tar.gz"
+      dest: "{{cuboid_data_dir}}/"
+      flat: yes
+      validate_checksum: no
+  become: yes
+  become_user: root
+  become_method: sudo
+
+#- name: delete temporaray files
+#  file:
+#      path: "/tmp/cuboid"
+#      state: absent
+#  become: yes
+#  become_user: root
+#  become_method: sudo

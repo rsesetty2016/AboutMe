@@ -1,0 +1,18 @@
+---
+# tasks file for syncController
+#
+
+- name: Get file list
+  shell: "ls {{ aiRepoHome }}/deploy_*_*.json"
+  register: filesToCopy
+
+- name: msg
+  debug: msg={{filesToCopy.stdout_lines}}
+
+- name: copy property file
+  fetch:
+     src: "{{ item }}"
+     dest: syncController/files/
+     flat: yes
+  with_items: "{{filesToCopy.stdout_lines}}"
+   

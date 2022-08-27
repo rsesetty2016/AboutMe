@@ -1,0 +1,36 @@
+---
+# tasks file for jobOne
+
+- name: Copy track file if exists on repo server
+  copy:
+     src: "{{syncFilePath}}{{dc}}/{{env}}/.TRACK"
+     dest: /tmp/aiRelease/.
+  ignore_errors: yes
+
+- name: run script - cloudUser.pl
+  shell: scripts/cloudUser.pl
+  args:
+    chdir: /tmp/aiRelease
+  become: yes
+  become_user: root
+  become_method: sudo
+  ignore_errors: yes
+  register: output
+
+- name: check if track file exists
+  stat:
+    path: /tmp/aiRelease/.TRACK
+  register: isTrackExists
+
+- name: copy the track file to controller
+  become: yes
+  become_user: root
+  become_method: sudo
+  fetch:
+    src: /tmp/aiRelease/.TRACK
+    dest: "{{syncFilePath}}{{dc}}/{{env}}/"
+    flat: yes
+  when: isTrackExists.stat.exists == True
+
+- name: output
+  debug: msg={{output}}

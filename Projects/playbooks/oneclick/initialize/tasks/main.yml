@@ -1,0 +1,102 @@
+---
+# tasks file for initialize
+#
+#
+
+- name: copy ai repo
+  copy:
+      src: "{{syncFilePath}}{{ aiRepoFile }}"
+      dest: /tmp/.
+  become: yes
+  become_user: root
+  become_method: sudo
+#  register: x
+
+- block: 
+    - name: extract repository
+      unarchive:
+         src: /tmp/{{ aiRepoFile }}
+         dest: /tmp
+         remote_src: yes
+      become: yes
+      become_user: root
+      become_method: sudo
+      register: untar_status
+#  when: x.changed
+
+- name: remove tar repository
+  file:
+      path: /tmp/{{aiRepoFile}}
+      state: absent   
+  become: yes
+  become_user: root
+  become_method: sudo
+
+- block:
+  - name: copy {{aiMsBaseFile}} to client
+    copy:
+        src: "{{syncFilePath}}{{aiMsBaseFile}}"
+        dest: /tmp/aiRelease/.
+    become: yes
+    become_user: root
+    become_method: sudo
+    register: x
+    tags:
+      - MSXXRepo
+
+  - name: copy {{aiOtDirFile}} to client
+    copy:
+        src: "{{syncFilePath}}{{aiOtDirFile}}"
+        dest: /tmp/aiRelease/.
+    become: yes
+    become_user: root
+    become_method: sudo
+    register: x
+    tags:
+      - MSXXRepo
+
+  - name: copy {{aiMsAiCfgFile}} to client
+    copy:
+        src: "{{syncFilePath}}{{aiMsAiCfgFile}}"
+        dest: /tmp/aiRelease/.
+    become: yes
+    become_user: root
+    become_method: sudo
+    register: x
+    tags:
+      - MSXXRepo
+
+  - name: copy property file to client
+    copy:
+        src: "{{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{ hostvars['localhost']['client_name'] }}"
+        dest: /tmp/aiRelease/properties/.
+    become: yes
+    become_user: root
+    become_method: sudo
+
+
+#- name: 
+#  debug:
+#     msg: "{{ hostvars['localhost']['uninstall_file'].stat.exists }} "
+
+
+- name: copy control file to client(install)
+  copy:
+        src: "{{syncFilePath}}{{dc}}/{{env}}/.INSTALL_CLIENT"
+        dest: /tmp/aiRelease/.
+  become: yes
+  become_user: root
+  become_method: sudo
+  ignore_errors: yes
+  when: hostvars['localhost']['install_file'].stat.exists == True
+
+- name: copy control file to client(uninstall)
+  copy:
+        src: "{{syncFilePath}}{{dc}}/{{env}}/.UNINSTALL_CLIENT"
+        dest: /tmp/aiRelease/.
+  become: yes
+  become_user: root
+  become_method: sudo
+  ignore_errors: yes
+  when: hostvars['localhost']['uninstall_file'].stat.exists == True
+

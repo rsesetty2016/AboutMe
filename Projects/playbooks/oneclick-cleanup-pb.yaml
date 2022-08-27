@@ -1,0 +1,239 @@
+---
+# main file
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           leg: "leg1"
+
+  
+
+- hosts: localhost
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+    - name: check local directory structure
+      include: oneclick/syncController/tasks/setup.yaml
+
+- hosts: lit-vwmsm-p001.gxsonline.net
+  vars_files:
+      - ./common/vars/main.yml
+  gather_facts: no
+  tasks:
+    - include_role:
+       name: oneclick/syncController
+
+
+- hosts: localhost
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+     - name: check if Install Process
+       stat:
+           path: "{{syncFilePath }}/{{dc}}/{{env}}/.INSTALL_CLIENT"
+       register: install_file
+
+     - name: Check if uninstall  process
+       stat:
+             path: "{{syncFilePath}}/{{dc}}/{{env}}/.UNINSTALL_CLIENT"
+       register: uninstall_file
+
+     - shell: cat {{syncFilePath}}/{{dc}}/{{env}}/{{installFile}}
+       register: client_name_install
+       when: install_file.stat.exists == True
+
+     - shell: cat {{syncFilePath}}/{{dc}}/{{env}}/{{uninstallFile}}
+       register: client_name_uninstall
+       when: uninstall_file.stat.exists == True
+
+     - name: set client name
+       set_fact:
+         client_name: "{{ client_name_install.stdout_lines[0] | to_yaml | replace('\n...\n', '')}}"
+       when: install_file.stat.exists == True
+
+     - name: set client name
+       set_fact:
+         client_name: "{{ client_name_uninstall.stdout_lines[0] | to_yaml | replace('\n...\n', '')}}"
+       when: uninstall_file.stat.exists == True
+
+     - name:
+       set_fact:
+            install_file: "{{install_file}}"
+     - name:
+       set_fact:
+            uninstall_file: "{{uninstall_file}}"
+
+     - name: set ai Host using shell
+       shell: grep AI_HOST= {{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{client_name}} | cut -f2 -d=
+       register: ai_host
+
+     - name: extract AI hostname
+       set_fact:
+            ai_host: "{{ai_host.stdout_lines[0]}}"
+
+     - name: set MS ADMIN host
+       shell: grep MS_ADMIN_HOST= {{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{client_name}} | cut -f2 -d=
+       register: ms_host
+
+     - name:
+       set_fact:
+            ms_admin_host: "{{ms_host.stdout_lines[0]}}"
+
+     - name: set ES ADMIN host
+       shell: grep ES_ADMIN_HOST= {{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{client_name}} | cut -f2 -d=
+       register: es_host
+
+     - name:
+       set_fact:
+            es_host: "{{es_host.stdout_lines[0]}}"
+
+     - name: set DB Host
+       shell: grep DB_HOST= {{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{client_name}} | cut -f2 -d=
+       register: db_host
+
+     - name:
+       set_fact:
+            db_host: "{{db_host.stdout_lines[0]}}"
+
+
+- hosts: localhost
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+     - name: Remove aiRelease directory
+       file: 
+           name="/tmp/aiRelease"
+           state=absent
+       delegate_to: "{{ item }}"
+       with_items:
+          - "{{ hostvars['localhost']['es_host'] }}"
+          - "{{ hostvars['localhost']['ms_admin_host'] }}"
+          - "{{ hostvars['localhost']['ai_host'] }}"
+       become: yes
+       become_user: root
+       become_method: sudo
+
+#Repeat the same for leg2
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           leg: "leg2"
+
+  
+- hosts: localhost
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+     - name: check if Install Process
+       stat:
+           path: "{{syncFilePath }}/{{dc}}/{{env}}/.INSTALL_CLIENT"
+       register: install_file
+
+     - name: Check if uninstall  process
+       stat:
+             path: "{{syncFilePath}}/{{dc}}/{{env}}/.UNINSTALL_CLIENT"
+       register: uninstall_file
+
+     - shell: cat {{syncFilePath}}/{{dc}}/{{env}}/{{installFile}}
+       register: client_name_install
+       when: install_file.stat.exists == True
+
+     - shell: cat {{syncFilePath}}/{{dc}}/{{env}}/{{uninstallFile}}
+       register: client_name_uninstall
+       when: uninstall_file.stat.exists == True
+
+     - name: set client name
+       set_fact:
+         client_name: "{{ client_name_install.stdout_lines[0] | to_yaml | replace('\n...\n', '')}}"
+       when: install_file.stat.exists == True
+
+     - name: set client name
+       set_fact:
+         client_name: "{{ client_name_uninstall.stdout_lines[0] | to_yaml | replace('\n...\n', '')}}"
+       when: uninstall_file.stat.exists == True
+
+     - name:
+       set_fact:
+            install_file: "{{install_file}}"
+     - name:
+       set_fact:
+            uninstall_file: "{{uninstall_file}}"
+
+     - name: set ai Host using shell
+       shell: grep AI_HOST= {{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{client_name}} | cut -f2 -d=
+       register: ai_host
+
+     - name: extract AI hostname
+       set_fact:
+            ai_host: "{{ai_host.stdout_lines[0]}}"
+
+     - name: set MS ADMIN host
+       shell: grep MS_ADMIN_HOST= {{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{client_name}} | cut -f2 -d=
+       register: ms_host
+
+     - name:
+       set_fact:
+            ms_admin_host: "{{ms_host.stdout_lines[0]}}"
+
+     - name: set ES ADMIN host
+       shell: grep ES_ADMIN_HOST= {{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{client_name}} | cut -f2 -d=
+       register: es_host
+
+     - name:
+       set_fact:
+            es_host: "{{es_host.stdout_lines[0]}}"
+
+     - name: set DB Host
+       shell: grep DB_HOST= {{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{client_name}} | cut -f2 -d=
+       register: db_host
+
+     - name:
+       set_fact:
+            db_host: "{{db_host.stdout_lines[0]}}"
+
+
+- hosts: localhost
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+     - name: Remove aiRelease directory
+       file: 
+           name="/tmp/aiRelease"
+           state=absent
+       delegate_to: "{{ item }}"
+       with_items:
+          - "{{ hostvars['localhost']['es_host'] }}"
+          - "{{ hostvars['localhost']['ms_admin_host'] }}"
+          - "{{ hostvars['localhost']['ai_host'] }}"
+       become: yes
+       become_user: root
+       become_method: sudo
+
+  
+- hosts: localhost
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+    - name: cleanup files on controller
+      include: oneclick/cleanup/tasks/local_cleanup.yaml
+
+
+- hosts: lit-vwmsm-p001.gxsonline.net
+  vars_files:
+      - ./common/vars/main.yml
+  gather_facts: no
+  tasks:
+    - name: cleanup files on controller
+      include: oneclick/cleanup/tasks/repo_cleanup.yaml
+
+

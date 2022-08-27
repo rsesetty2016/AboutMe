@@ -1,0 +1,451 @@
+- hosts: "{{cuboid_repo.host}}"
+  gather_facts: no
+  vars_files:
+     - ./disaster-recovery/vars/main.yml
+  tasks:
+      - name: "Get config files from repository server"
+        fetch:
+            src: "{{cuboid_repo.dr_config_dir}}/{{client}}/{{env}}/hosts.txt"
+            dest: "{{cuboid_data_dir}}/"
+            flat: yes
+            validate_checksum: no
+        become: yes
+        become_user: root
+        become_method: sudo
+
+
+- hosts: localhost
+  gather_facts: no
+  vars_files:
+      - ./disaster-recovery/vars/main.yml
+  tasks:
+
+      - name: "Get COMPONENT1hosts"
+        shell: "cat {{cuboid_data_dir}}/hosts.txt | grep COMPONENT1| cut -f 3 -d:"
+        register: ai_hosts_list
+
+      - name:
+        set_fact:
+            ai_hosts: "{{ai_hosts_list.stdout_lines[0]}}"
+
+      - name: "Get COMPONENT2hosts"
+        shell: "cat {{cuboid_data_dir}}/hosts.txt | grep COMPONENT2| cut -f 3 -d:"
+        register: es_hosts_list
+
+      - name:
+        set_fact:
+            es_hosts: "{{es_hosts_list.stdout_lines[0]}}"
+
+      - name: "Get ADM hosts"
+        shell: "cat {{cuboid_data_dir}}/hosts.txt | grep ADM | cut -f 3 -d:"
+        register: adm_hosts_list
+
+      - name:
+        set_fact:
+            adm_hosts: "{{adm_hosts_list.stdout_lines[0]}}"
+
+      - name: "Get MSGW hosts"
+        shell: "cat {{cuboid_data_dir}}/hosts.txt | grep MSGW | cut -f 3 -d:"
+        register: msgw_hosts_list
+
+      - name:
+        set_fact:
+            msgw_hosts: "{{msgw_hosts_list.stdout_lines[0]}}"
+
+      - name: "Get SMG hosts"
+        shell: "cat {{cuboid_data_dir}}/hosts.txt | grep SMG | cut -f 3 -d:"
+        register: smg_hosts_list
+
+      - name:
+        set_fact:
+            smg_hosts: "{{smg_hosts_list.stdout_lines[0]}}"
+
+      - name: "Get AS2 hosts"
+        shell: "cat {{cuboid_data_dir}}/hosts.txt | grep AS2 | cut -f 3 -d:"
+        register: as2_hosts_list
+
+      - name:
+        set_fact:
+            as2_hosts: "{{as2_hosts_list.stdout_lines[0]}}"
+
+      - name: "Get AS2ADM hosts"
+        shell: "cat {{cuboid_data_dir}}/hosts.txt | grep AS2ADM | cut -f 3 -d:"
+        register: as2adm_hosts_list
+
+      - name:
+        set_fact:
+            as2adm_hosts: "{{as2adm_hosts_list.stdout_lines[0]}}"
+        when: as2adm_hosts is defined
+
+      - name:
+        set_fact:
+            as2adm_hosts: ""
+        when: as2adm_hosts is not defined
+
+      - name: Make temp directory on ansible host
+        file:
+            path="cuboid/files"
+            state=directory
+            mode=0755
+
+      - name: create a zip file of data files
+        archive:
+            path: "cuboid/scripts/*"
+            dest: "cuboid/files/scripts.tar.gz"
+
+      - set_fact:
+         is_dr_valid: true
+         dc: ''
+         proceed: false
+      
+
+#- hosts: "{{hostvars['localhost']['ai_hosts']}}"
+#  gather_facts: no
+#  tasks:
+#      - block:
+#          - name: determine hosts that are up
+#            wait_for_connection:
+#              timeout: 10
+#            vars:
+#              ansible_connection: ssh
+#          - name: add devices with connectivity to the "running_hosts" group
+#            group_by:
+#              key: "running_hosts"
+
+- hosts: "{{hostvars['localhost']['msgw_hosts']}}"
+  serial: 1
+  gather_facts: no
+  vars_files:
+     - ./disaster-recovery/vars/main.yml
+  tasks:
+      - name: check if file exists (Active)
+        stat:
+            path: /opt/msggwy/ACTIVE
+        register: actv
+
+      - name: check if file exists (standby)
+        stat:
+            path: /opt/msggwy/BACKUP
+        register: bkp
+
+      - set_fact:
+           dc: "{{inventory_hostname[0:3]}}"
+           proceed: true
+        when: actv.stat.exists
+        delegate_facts: true
+        delegate_to: localhost
+
+      - set_fact:
+           active: "{{ actv.stat.exists }}"
+           standby: "{{ bkp.stat.exists }}"
+           is_dr_valid: "{{hostvars['localhost']['is_dr_valid'] and ((actv.stat.exists and not bkp.stat.exists) or (not actv.stat.exists and bkp.stat.exists))}}"
+        delegate_facts: true
+        delegate_to: localhost
+
+- hosts: localhost
+  gather_facts: no
+  vars_files:
+     - ./disaster-recovery/vars/main.yml
+  tasks:
+      - block:
+         - name: END if there is a conflict with active and backup
+           debug:
+               msg: "Terminating playbook as ACTIVE and BACKUP conflict found"
+         - meta: end_play 
+        when: not is_dr_valid or not proceed
+
+- hosts: localhost
+  gather_facts: no
+  vars_files:
+     - ./disaster-recovery/vars/main.yml
+  tasks:
+      - name: 
+        debug:
+            msg: "Active data center: {{dc}}, is valid: {{is_dr_valid}}, should proceed: {{proceed}}"
+
+- hosts: "{{hostvars['localhost']['es_hosts']}}"
+  gather_facts: no
+  vars_files:
+      - ./disaster-recovery/vars/main.yml
+  tasks:
+      - block:
+        - name: copy config files to hosts
+          copy:
+            src: "{{item}}"
+            dest: "{{cuboid_tmp_dir}}"
+            mode: 0755
+          become: yes
+          become_user: root
+          become_method: sudo
+          with_items:
+            - "cuboid/config/dr/{{client}}/{{env}}/dr_config.json"  
+            - "cuboid/files/scripts.tar.gz"
+
+        - name: extract repository
+          unarchive:
+            src: "{{cuboid_tmp_dir}}/scripts.tar.gz"
+            dest: "{{cuboid_tmp_dir}}"
+            mode: 0755
+            remote_src: yes
+          ignore_errors: yes
+          become: yes
+          become_user: root
+          become_method: sudo
+
+        - name: "run dr task handler"
+          shell: "python {{cuboid_tmp_dir}}/dr_task_handler.py client={{client}} env={{env}} dry_run={{dry_run}}  dc={{hostvars['localhost']['dc']}}"
+          args:
+            chdir: "{{cuboid_tmp_dir}}"
+            executable: /bin/bash
+          environment:
+            TERM: vt100
+          become: yes
+          become_user: root
+          become_method: sudo
+        when: hostvars['localhost']['is_dr_valid'] and hostvars['localhost']['proceed']
+
+- hosts: "{{hostvars['localhost']['ai_hosts']}}"
+  gather_facts: no
+  vars_files:
+      - ./disaster-recovery/vars/main.yml
+  tasks:
+    - block:
+      - name: copy config files to hosts
+        copy:
+           src: "{{item}}"
+           dest: "{{cuboid_tmp_dir}}"
+           mode: 0755
+        become: yes
+        become_user: root
+        become_method: sudo
+        with_items:
+           - "cuboid/config/dr/{{client}}/{{env}}/dr_config.json"  
+           - "cuboid/files/scripts.tar.gz"
+
+      - name: extract repository
+        unarchive:
+            src: "{{cuboid_tmp_dir}}/scripts.tar.gz"
+            dest: "{{cuboid_tmp_dir}}"
+            mode: 0755
+            remote_src: yes
+        ignore_errors: yes
+        become: yes
+        become_user: root
+        become_method: sudo
+
+      - name: "run dr task handler"
+        shell: "python {{cuboid_tmp_dir}}/dr_task_handler.py client={{client}} env={{env}} dry_run={{dry_run}}  dc={{hostvars['localhost']['dc']}}"
+        args:
+          chdir: "{{cuboid_tmp_dir}}"
+          executable: /bin/bash
+        environment:
+          TERM: vt100
+        become: yes
+        become_user: root
+        become_method: sudo
+      when: hostvars['localhost']['is_dr_valid'] and hostvars['localhost']['proceed']
+
+- hosts: "{{hostvars['localhost']['smg_hosts']}}"
+  gather_facts: no
+  vars_files:
+      - ./disaster-recovery/vars/main.yml
+  tasks:
+    - block:
+      - name: copy config files to hosts
+        copy:
+           src: "{{item}}"
+           dest: "{{cuboid_tmp_dir}}"
+           mode: 0755
+        become: yes
+        become_user: root
+        become_method: sudo
+        with_items:
+           - "cuboid/config/dr/{{client}}/{{env}}/dr_config.json"  
+           - "cuboid/files/scripts.tar.gz"
+
+      - name: extract repository
+        unarchive:
+            src: "{{cuboid_tmp_dir}}/scripts.tar.gz"
+            dest: "{{cuboid_tmp_dir}}"
+            mode: 0755
+            remote_src: yes
+        ignore_errors: yes
+        become: yes
+        become_user: root
+        become_method: sudo
+
+      - name: "run dr task handler"
+        shell: "python {{cuboid_tmp_dir}}/dr_task_handler.py client={{client}} env={{env}} dry_run={{dry_run}}  dc={{hostvars['localhost']['dc']}}"
+        args:
+          chdir: "{{cuboid_tmp_dir}}"
+          executable: /bin/bash
+        environment:
+          TERM: vt100
+        become: yes
+        become_user: root
+        become_method: sudo
+      when: hostvars['localhost']['is_dr_valid'] and hostvars['localhost']['proceed']
+
+- hosts: "{{hostvars['localhost']['as2_hosts']}}"
+  gather_facts: no
+  vars_files:
+      - ./disaster-recovery/vars/main.yml
+  tasks:
+    - block:
+      - name: copy config files to hosts
+        copy:
+           src: "{{item}}"
+           dest: "{{cuboid_tmp_dir}}"
+           mode: 0755
+        become: yes
+        become_user: root
+        become_method: sudo
+        with_items:
+           - "cuboid/config/dr/{{client}}/{{env}}/dr_config.json"  
+           - "cuboid/files/scripts.tar.gz"
+
+      - name: extract repository
+        unarchive:
+            src: "{{cuboid_tmp_dir}}/scripts.tar.gz"
+            dest: "{{cuboid_tmp_dir}}"
+            mode: 0755
+            remote_src: yes
+        ignore_errors: yes
+        become: yes
+        become_user: root
+        become_method: sudo
+
+      - name: "run dr task handler"
+        shell: "python {{cuboid_tmp_dir}}/dr_task_handler.py client={{client}} env={{env}} dry_run={{dry_run}}  dc={{hostvars['localhost']['dc']}}"
+        args:
+          chdir: "{{cuboid_tmp_dir}}"
+          executable: /bin/bash
+        environment:
+          TERM: vt100
+        become: yes
+        become_user: root
+        become_method: sudo
+      when: hostvars['localhost']['is_dr_valid'] and hostvars['localhost']['proceed']
+
+- hosts: "{{hostvars['localhost']['adm_hosts']}}"
+  gather_facts: no
+  vars_files:
+      - ./disaster-recovery/vars/main.yml
+  tasks:
+    - block:
+      - name: copy config files to hosts
+        copy:
+           src: "{{item}}"
+           dest: "{{cuboid_tmp_dir}}"
+           mode: 0755
+        become: yes
+        become_user: root
+        become_method: sudo
+        with_items:
+           - "cuboid/config/dr/{{client}}/{{env}}/dr_config.json"  
+           - "cuboid/files/scripts.tar.gz"
+
+      - name: extract repository
+        unarchive:
+            src: "{{cuboid_tmp_dir}}/scripts.tar.gz"
+            dest: "{{cuboid_tmp_dir}}"
+            mode: 0755
+            remote_src: yes
+        ignore_errors: yes
+        become: yes
+        become_user: root
+        become_method: sudo
+
+      - name: "run dr task handler"
+        shell: "python {{cuboid_tmp_dir}}/dr_task_handler.py client={{client}} env={{env}} dry_run={{dry_run}}  dc={{hostvars['localhost']['dc']}}"
+        args:
+          chdir: "{{cuboid_tmp_dir}}"
+          executable: /bin/bash
+        environment:
+          TERM: vt100
+        become: yes
+        become_user: root
+        become_method: sudo
+      when: hostvars['localhost']['is_dr_valid'] and hostvars['localhost']['proceed']
+
+- hosts: "{{hostvars['localhost']['msgw_hosts']}}"
+  gather_facts: no
+  vars_files:
+      - ./disaster-recovery/vars/main.yml
+  tasks:
+    - block:
+      - name: copy config files to hosts
+        copy:
+           src: "{{item}}"
+           dest: "{{cuboid_tmp_dir}}"
+           mode: 0755
+        become: yes
+        become_user: root
+        become_method: sudo
+        with_items:
+           - "cuboid/config/dr/{{client}}/{{env}}/dr_config.json"  
+           - "cuboid/files/scripts.tar.gz"
+
+      - name: extract repository
+        unarchive:
+            src: "{{cuboid_tmp_dir}}/scripts.tar.gz"
+            dest: "{{cuboid_tmp_dir}}"
+            mode: 0755
+            remote_src: yes
+        ignore_errors: yes
+        become: yes
+        become_user: root
+        become_method: sudo
+
+      - name: "run dr task handler"
+        shell: "python {{cuboid_tmp_dir}}/dr_task_handler.py client={{client}} env={{env}} dry_run={{dry_run}}  dc={{hostvars['localhost']['dc']}}"
+        args:
+          chdir: "{{cuboid_tmp_dir}}"
+          executable: /bin/bash
+        environment:
+          TERM: vt100
+        become: yes
+        become_user: root
+        become_method: sudo
+      when: hostvars['localhost']['is_dr_valid'] and hostvars['localhost']['proceed']
+
+- hosts: "localhost, {{hostvars['localhost']['as2adm_hosts']}}"
+  gather_facts: no
+  vars_files:
+      - ./disaster-recovery/vars/main.yml
+  tasks:
+    - block:
+      - name: copy config files to hosts
+        copy:
+           src: "{{item}}"
+           dest: "{{cuboid_tmp_dir}}"
+           mode: 0755
+        become: yes
+        become_user: root
+        become_method: sudo
+        with_items:
+           - "cuboid/config/dr/{{client}}/{{env}}/dr_config.json"  
+           - "cuboid/files/scripts.tar.gz"
+
+      - name: extract repository
+        unarchive:
+            src: "{{cuboid_tmp_dir}}/scripts.tar.gz"
+            dest: "{{cuboid_tmp_dir}}"
+            mode: 0755
+            remote_src: yes
+        ignore_errors: yes
+        become: yes
+        become_user: root
+        become_method: sudo
+
+      - name: "run dr task handler"
+        shell: "python {{cuboid_tmp_dir}}/dr_task_handler.py client={{client}} env={{env}} dry_run={{dry_run}}  dc={{hostvars['localhost']['dc']}}"
+        args:
+          chdir: "{{cuboid_tmp_dir}}"
+          executable: /bin/bash
+        environment:
+          TERM: vt100
+        become: yes
+        become_user: root
+        become_method: sudo
+      when: hostvars['localhost']['is_dr_valid'] and hostvars['localhost']['proceed']

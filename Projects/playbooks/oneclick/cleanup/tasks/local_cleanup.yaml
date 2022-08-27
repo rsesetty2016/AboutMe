@@ -1,0 +1,43 @@
+---
+#
+#
+#
+
+
+###- name: check if Install Process
+###  stat:
+###      path: "{{syncFilePath }}/{{dc}}/{{env}}/{{installFile}}"
+###  register: install_file
+###
+###- name: Check if uninstall  process
+###  stat:
+###        path: "{{syncFilePath}}/{{dc}}/{{env}}/{{uninstallFile}}"
+###  register: uninstall_file
+###
+###- block:
+###  - name: remove install file from local temp directory
+###    file:
+###        path: "{{syncFilePath}}/{{dc}}/{{env}}/{{installFile}}"
+###        state: absent
+###  when: install_file.stat.exists == True
+###
+###- block:
+###  - name: remove uninstall file from local temp directory
+###    file:
+###        path: "{{syncFilePath}}/{{dc}}/{{env}}/{{uninstallFile}}"
+###        state: absent
+###  when: uninstall_file.stat.exists == True
+###
+###- block:
+###  - name: Copy ES files
+###    file:
+###        path: "{{item}}"
+###        state: absent
+###    with_fileglob:
+###        - "{{syncFilePath}}{{dc}}/{{env}}/*ssh_key.txt"
+
+- block:
+  - name: remove uninstall file from local temp directory
+    file:
+        path: "{{syncFilePath}}"
+        state: absent

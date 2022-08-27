@@ -1,0 +1,13 @@
+---
+# tasks file for cleanup
+#
+
+- block:
+  - name: remove aiRelease directory
+    file:
+         path: /tmp/aiRelease
+         state: absent
+    become: yes
+    become_user: root
+    become_method: sudo
+

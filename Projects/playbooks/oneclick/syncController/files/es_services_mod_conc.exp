@@ -1,0 +1,99 @@
+#!/usr/bin/expect
+#
+set exit_status 1
+
+if {$argc < 4} {
+   send_error "ERROR: The following parameters are required (optional):\n\n"
+   send_error "       login pw socket (concurrency max_queue max_time)\n"
+   exit 1 }
+
+set user      [lindex $argv 0]
+set pass      [lindex $argv 1]
+set sock      [lindex $argv 2]
+set con       [lindex $argv 3]
+set maxq      [lindex $argv 4]
+set maxt      [lindex $argv 5]
+
+set elight    [lindex $argv 28]
+send_error " User: $user\n Password: $pass\n Socket: $sock\n Concurrency: $con\n Max Queue: $maxq\n Max Time: $maxt\n"
+set prompt " (%|#|\\\$)$"
+
+if {[string compare $elight "ELIGHTACTIVE"] == 0} {
+  cd $env(HOME)
+  spawn -noecho ksh
+  send "emu edisuppemu -d\n"
+} else {
+  cd $env(HOME)
+  spawn -noecho ksh
+  send "ediswit -s\n"
+}
+set timeout 60
+expect "Exit System"
+send "$user\t$pass\r"
+expect "Exit System"
+
+set timeout 5
+send "2\r"
+expect "Date"
+send "o\r"
+expect "previous"
+send "\t$sock\r"
+expect "previous"
+send "1c\r"
+expect { 
+	"$sock" {
+	}
+	timeout {
+        send_error "Timeout during locating of $sock\n"
+        close
+        wait
+        exit 1
+	}
+} 
+
+set timeout 5
+
+if {[string compare "$con" ""] == 0} {
+  send "\t"
+} else {
+  send -- "$con\t"
+}
+if {[string compare "$maxq" ""] == 0} {
+  send "\t"
+} else {
+  send -- "$maxq\t"
+}
+if {[string compare "$maxt" ""] == 0} {
+  send "\t"
+} else {
+  send -- "$maxt\t"
+}
+send "$pass\r"
+
+expect {
+    "previous"  {
+        if {[string compare $elight "ELIGHTACTIVE"] == 0} {
+           log_file RESULT
+           send_log "$sock updated successfully\n"
+           log_file
+        } else {
+           send_error "NOTE: $sock updated successfully\n"
+        }
+        set exit_status 0 }
+    timeout {
+        if {[string compare $elight "ELIGHTACTIVE"] == 0} {
+           log_file RESULT
+           send_log "Timeout during update of $sock\n"
+           log_file
+        } else {
+           send_error "Timeout during update of $sock\n"
+        }
+        close
+        wait
+        exit 1 }
+}
+
+close
+wait
+exit $exit_status
+

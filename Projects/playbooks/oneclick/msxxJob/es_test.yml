@@ -1,0 +1,18 @@
+---
+# tasks file for jobOne
+
+
+- name: run script - {{hostvars['localhost']['script_to_run'] }}
+  shell: scripts/{{hostvars['localhost']['script_to_run'] }}
+  args:
+    chdir: /tmp/aiRelease
+    executable: /bin/bash
+  environment:
+    TERM: vt100
+  become: yes
+  become_user: root
+  become_method: sudo
+  register: output
+
+- name: output
+  debug: msg={{output}}

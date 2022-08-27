@@ -1,0 +1,59 @@
+---
+#
+#
+#
+
+
+- name: check if Install Process
+  stat:
+      path: "{{syncFilePath }}/{{dc}}/{{env}}/{{installFile}}"
+  register: install_file
+
+- name: Check if uninstall  process
+  stat:
+        path: "{{syncFilePath}}/{{dc}}/{{env}}/{{uninstallFile}}"
+  register: uninstall_file
+
+- block:
+  - shell: cat {{syncFilePath}}/{{dc}}/{{env}}/{{installFile}}
+    register: client_name_install
+  when: install_file.stat.exists == True
+
+- block: 
+    - shell: cat {{syncFilePath}}/{{dc}}/{{env}}/{{uninstallFile}}
+      register: client_name_uninstall
+      when: uninstall_file.stat.exists == True
+  when: 
+    - install_file.stat.exists == False
+    - env == "init"
+
+
+- block:
+     - name: check if Install Process
+       stat:
+           path: "{{syncFilePath }}/{{dc}}/{{env}}/.INSTALL_CLIENT"
+       register: install_file
+
+     - name: Check if uninstall  process
+       stat:
+             path: "{{syncFilePath}}/{{dc}}/{{env}}/.UNINSTALL_CLIENT"
+       register: uninstall_file
+
+     - name:
+       set_fact:
+            install_file: "{{install_file}}"
+     - name:
+       set_fact:
+            uninstall_file: "{{uninstall_file}}"
+
+- name: set client name
+  set_fact:
+    client_name: "{{ client_name_install.stdout_lines[0] | to_yaml | replace('\n...\n', '')}}"
+    controlfile: "{{installFile}}"
+  when: install_file.stat.exists == True
+
+- name: set client name
+  set_fact:
+    client_name: "{{ client_name_uninstall.stdout_lines[0] | to_yaml | replace('\n...\n', '')}}"
+    controlfile: "{{uninstallFile}}"
+  when: uninstall_file.stat.exists == True

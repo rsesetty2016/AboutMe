@@ -50,5 +50,12 @@ All this process takes about 80 man hours.
 ###### The Implementation
 1. About 6000 lines of code written in Perl
 2. Used **Bladelogic** to orchestrate the process across multiple machines
-3. 
+3. Later migrated off to **Ansible**, so we can decommission Bladelogic.
+4. The Ansible playbook has the following roles:
+   1. Precheck role that checks if another job running, and only one install can happen at a time per environment.
+   2. Database role that creates database schema if it does not exists.
+   3. Initialize role that deploys required repository files to all hosts
+   4. Generic role that executes the script based on the host
+   5. Establishes SSH public authentication between VMs.
+   6. Cleanup role that deletes temporary files and installers.
 

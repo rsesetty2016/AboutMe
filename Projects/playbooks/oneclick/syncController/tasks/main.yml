@@ -1,0 +1,163 @@
+---
+# tasks file for syncController
+
+- block:
+    - name: sync {{aiMsBaseFile}}
+      fetch:
+        src: "{{ msxx_1click_repo_home }}/{{aiMsBaseFile}}"
+        dest: "{{syncFilePath}}"
+        flat: yes
+      tags:
+        - sourceSync
+
+    - name: sync {{aiOtDirFile}}
+      fetch:
+        src: "{{ msxx_1click_repo_home }}/{{aiOtDirFile}}"
+        dest: "{{syncFilePath}}"
+        flat: yes
+      tags:
+        - sourceSync
+
+    - name: sync {{aiMsAiCfgFile}}
+      fetch:
+        src: "{{ msxx_1click_repo_home }}/{{aiMsAiCfgFile}}"
+        dest: "{{syncFilePath}}"
+        flat: yes
+      tags:
+        - sourceSync
+
+    - name: sync {{aiRepoFile}}
+      fetch:
+        src: "{{ msxx_1click_repo_home }}/{{aiRepoFile}}"
+        dest: "{{syncFilePath}}"
+        flat: yes
+      tags:
+        - sourceSync
+
+    - name: sync {{aiDBFile}}
+      fetch:
+        src: "{{ msxx_1click_repo_home }}/{{aiDBFile}}"
+        dest: "{{syncFilePath}}"
+        flat: yes
+      tags:
+        - sourceSync
+    
+    - name: sync {{dbRepoFile}}
+      fetch:
+        src: "{{ msxx_1click_repo_home }}/{{dbRepoFile}}"
+        dest: "{{syncFilePath}}"
+        flat: yes
+      tags:
+        - sourceSync
+
+    - name: sync ES FILES
+      fetch:
+        src: "{{ msxx_1click_repo_home }}/{{item}}"
+        dest: "{{syncFilePath}}"
+        flat: yes
+      with_items:
+        - "{{ esServiceFiles }}"
+      tags:
+        - sourceSync
+
+    - name: sync db_install.sh
+      fetch:
+        src: "{{ msxx_1click_repo_home }}/db_install.sh"
+        dest: "{{syncFilePath}}"
+        flat: yes
+      tags:
+        - sourceSync
+
+- name: check if Install Process
+  stat:
+      path: "{{ msxx_1click_web_home }}/{{dc}}/{{env}}/{{installFile}}"
+  register: install_file
+
+- name: debugs
+  debug: msg="{{ msxx_1click_web_home }}/{{dc}}/{{env}}/{{installFile}}"
+
+- name: Check if uninstall  process
+  stat:
+        path: "{{ msxx_1click_web_home }}/{{dc}}/{{env}}/{{uninstallFile}}"
+  register: uninstall_file
+
+- block:
+  - shell: cat "{{ msxx_1click_web_home }}/{{dc}}/{{env}}/{{installFile}}"
+    register: client_name_install
+  when: install_file.stat.exists == True
+  become: yes
+  become_user: root
+  become_method: sudo
+
+- block:
+    - shell: cat "{{ msxx_1click_web_home }}/{{dc}}/{{env}}/{{uninstallFile}}"
+      register: client_name_uninstall
+      when: uninstall_file.stat.exists == True
+  when: install_file.stat.exists == False
+  become: yes
+  become_user: root
+  become_method: sudo
+
+- name: set client name
+  set_fact:
+    client_name: "{{ client_name_install.stdout_lines[0] | to_yaml | replace('\n...\n', '')}}"
+    controlfile: "{{installFile}}"
+  when: install_file.stat.exists == True
+  become: yes
+  become_user: root
+  become_method: sudo
+
+- name: set client name
+  set_fact:
+    client_name: "{{ client_name_uninstall.stdout_lines[0] | to_yaml | replace('\n...\n', '')}}"
+    controlfile: "{{uninstallFile}}"
+  when: uninstall_file.stat.exists == True
+  become: yes
+  become_user: root
+  become_method: sudo
+
+- name: copy property file - 1
+  fetch:
+    src: "{{ msxx_1click_web_home }}/{{dc}}/{{env}}/leg1/ai.properties.{{client_name}}"
+    dest: "{{syncFilePath}}{{dc}}/{{env}}/leg1/"
+    flat: yes
+  become: yes
+  become_user: root
+  become_method: sudo
+
+- name: copy property file - 2
+  fetch:
+    src: "{{ msxx_1click_web_home }}/{{dc}}/{{env}}/leg2/ai.properties.{{client_name}}"
+    dest: "{{syncFilePath}}{{dc}}/{{env}}/leg2/"
+    flat: yes
+  become: yes
+  become_user: root
+  become_method: sudo
+
+- name: debugs_prop
+  debug: msg="{{ msxx_1click_web_home }}/{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{client_name}}"
+  become: yes
+  become_user: root
+  become_method: sudo
+   
+- name: copy install control file
+  fetch:
+    src: "{{ msxx_1click_web_home }}/{{dc}}/{{env}}/{{installFile}}"
+    dest: "{{syncFilePath}}{{dc}}/{{env}}/"
+    flat: yes
+  when: install_file.stat.exists == True
+  become: yes
+  become_user: root
+  become_method: sudo
+   
+- name: copy uninstall control file
+  fetch:
+    src: "{{ msxx_1click_web_home }}/{{dc}}/{{env}}/{{uninstallFile}}"
+    dest: "{{syncFilePath}}{{dc}}/{{env}}/"
+    flat: yes
+  when: uninstall_file.stat.exists == True
+  become: yes
+  become_user: root
+  become_method: sudo
+
+

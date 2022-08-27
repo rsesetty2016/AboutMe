@@ -1,0 +1,92 @@
+---
+# tasks file for jobOne
+#
+- name: copy repo to db server
+  become: yes
+  become_user: root
+  become_method: sudo
+  copy:
+      src: "{{syncFilePath}}{{aiDBFile}}"
+      dest: /home/msdeploy/bin/
+  when: hostvars['localhost']['install_file'].stat.exists == True
+
+- name: run script one
+  shell: "chmod -R 775 /home/msdeploy/bin"
+  args:
+    chdir: /home/msdeploy
+  become: yes
+  become_user: root
+  become_method: sudo
+
+- name: run script one
+  shell: "chown -R msdeploy:dba /home/msdeploy/*"
+  args:
+    chdir: /home/msdeploy
+  become: yes
+  become_user: root
+  become_method: sudo
+
+- name: extract repository
+  become: yes
+  become_user: msdeploy
+  become_method: sudo
+  unarchive:
+     src: /home/msdeploy/bin/{{ aiDBFile }}
+     dest: /home/msdeploy/bin/
+     remote_src: yes
+
+
+- name: copy database schema file
+  become: yes
+  become_user: msdeploy
+  become_method: sudo
+  copy:
+      src: "{{syncFilePath}}{{dbRepoFile}}"
+      dest: /home/msdeploy/bin/aiDBInstall/.
+  when: hostvars['localhost']['install_file'].stat.exists == True
+
+- name: copy db_install.sh file
+  become: yes
+  become_user: msdeploy
+  become_method: sudo
+  copy:
+      src: "{{syncFilePath}}db_install.sh"
+      dest: /home/msdeploy/bin/aiDBInstall/.
+      mode: "0755"
+  when: hostvars['localhost']['install_file'].stat.exists == True
+
+
+- name: copy control file to client(install)
+  become: yes
+  become_user: msdeploy
+  become_method: sudo
+  copy:
+        src: "{{syncFilePath}}{{dc}}/{{env}}/.INSTALL_CLIENT"
+        dest: /home/msdeploy/bin/aiDBInstall/.
+  ignore_errors: yes
+  when: hostvars['localhost']['install_file'].stat.exists == True
+
+
+- name: copy property file to client
+  become: yes
+  become_user: msdeploy
+  become_method: sudo
+  copy:
+    src: "{{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{ hostvars['localhost']['client_name'] }}"
+    dest: /home/msdeploy/bin/aiDBInstall/.
+  when: hostvars['localhost']['install_file'].stat.exists == True
+
+- name: run script one
+  shell: "sh db_install.sh"
+  args:
+    chdir: /home/msdeploy/bin/aiDBInstall
+  become: yes
+  become_user: msdeploy
+  become_method: sudo
+  ignore_errors: yes
+  register: output
+  when: hostvars['localhost']['install_file'].stat.exists == True
+
+- name: Debug
+  debug:
+      msg: "{{output}}"

@@ -1,0 +1,31 @@
+---
+#
+#
+#
+
+- block:
+  - name: Create directory structure to hold temporary data
+    file:
+       name="{{syncFilePath}}{{ dc }}/{{ env }}/{{item}}"
+       state=directory
+    with_items:
+       - leg1
+       - leg2
+
+#- block:
+#  - name: Create directory structure to hold temporary data
+#    file:
+#       name="{{syncFilePath}}{{ item[0] }}/{{ item[1] }}/{{ item[2] }}"
+#       state=directory
+#    with_nested:
+#       - '{{ aiDataCenters }}'
+#       - '{{ aiEnv }}'
+#       - '{{ aiLegs }}'
+
+#  - name: prep controller _ Data center
+#    file:
+#       name="{{ syncFilePath }}/{{ item[0] }}/{{ item[1] }}"
+#       state=directory
+#    with_nested:
+#       - '{{ aiDataCenters }}'
+#       - '{{ aiEnv }}'

@@ -1,0 +1,145 @@
+#!/usr/bin/expect
+#
+set exit_status 1
+
+if {$argc < 4} {
+   send_error "ERROR: The following parameters are required (optional):\n\n"
+   send_error "       login pw socket TUN (status concurrency outboundID outboundPW nodeSec)\n"
+   exit 1 }
+
+set user      [lindex $argv 0]
+set pass      [lindex $argv 1]
+set sock      [lindex $argv 2]
+set tun       [lindex $argv 3]
+set status    [lindex $argv 4]
+set con       [lindex $argv 5]
+set outid     [lindex $argv 6]
+set outpw     [lindex $argv 7]
+set nodeS     [lindex $argv 8]
+
+set elight    [lindex $argv 28]
+send_error " User: $user\n Password: $pass\n Socket: $sock\n TUN: $tun\n Status: $status\n Concurrency: $con\n Outbound ID: $outid\n Outbound PW: $outpw\n InterNode Security: $nodeS\n"
+set prompt " (%|#|\\\$)$"
+
+if {[string compare $elight "ELIGHTACTIVE"] == 0} {
+  cd $env(HOME)
+  spawn -noecho ksh
+  send "emu edisuppemu -d\n"
+} else {
+  cd $env(HOME)
+  spawn -noecho ksh
+  send "ediswit -s\n"
+}
+set timeout 45
+expect {
+        "Exit System" {}
+        timeout {
+                send_error "ERROR: Timeout during starting of ediswit -s\n"
+                close
+                wait
+                exit 1
+        }
+}
+send "$user\t$pass\r"
+set timeout 90
+expect {
+        "Exit System" {}
+        timeout {
+                send_error "ERROR: Timeout during logon of ediswit -s\n"
+                close
+                wait
+                exit 1
+        }
+}
+
+set timeout 45
+send "8\r"
+expect {
+        "Previous" {}
+        timeout {
+                send_error "ERROR: Timeout getting to SYSTEM MANAGER FACILITIES\n"
+                close
+                wait
+                exit 1
+        }
+}
+send "1\r"
+expect {
+        "Previous" {}
+        timeout {
+                send_error "ERROR: Timeout getting to NODE MAINTENANCE\n"
+                close
+                wait
+                exit 1
+        }
+}
+send "A\r"
+expect {
+        "Node to be AMENDED" {}
+        timeout {
+                send_error "ERROR: Timeout Amend Node\n"
+                close
+                wait
+                exit 1
+        }
+}
+
+set timeout 15
+send "$sock\t$tun\t$pass\r"
+expect "AMEND NODE"
+
+if {[string compare $status ""] == 0} {
+  send "\t"
+} else {
+  send "$status\t"
+}
+send "\t\t\t\t\t"
+if {[string compare $outid ""] == 0} {
+  send "\t"
+} else {
+  send "$outid\t"
+}
+if {[string compare $outpw ""] == 0} {
+  send "\t"
+} else {
+  send "$outpw\t"
+}
+if {[string compare $nodeS ""] == 0} {
+  send "\t"
+} else {
+  send "$nodeS\t"
+}
+#send "\t"
+if {[string compare $con ""] == 0} {
+  send "\r"
+} else {
+  send "$con\r"
+}
+
+expect {
+    "Node record amended"  {
+        if {[string compare $elight "ELIGHTACTIVE"] == 0} {
+           log_file RESULT
+           send_log "$sock updated successfully\n"
+           log_file
+        } else {
+           send_error "NOTE: $sock updated successfully\n"
+        }
+        set exit_status 0 }
+    timeout {
+        if {[string compare $elight "ELIGHTACTIVE"] == 0} {
+           log_file RESULT
+           send_log "Timeout during update of $sock\n"
+           log_file
+        } else {
+           send_error "Timeout during update of $sock\n"
+        }
+        close
+        wait
+        exit 1 }
+}
+
+close
+wait
+exit $exit_status
+

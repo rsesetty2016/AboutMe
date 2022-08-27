@@ -1,0 +1,988 @@
+---
+# main file
+
+  
+- hosts: localhost
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+    - name: check local directory structure
+      include: oneclick/syncController/tasks/setup.yaml
+
+    - name: check point 1
+      debug: msg={{ client_name }} 
+######################################################################
+# LEG 1 Installation                                                 #
+######################################################################
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           leg: "leg1"
+
+- hosts: lit-vwmsm-p001.gxsonline.net
+  vars_files:
+      - ./common/vars/main.yml
+  gather_facts: no
+  tasks:
+    - include_role:
+       name: oneclick/syncController
+
+- hosts: localhost
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+     - name: check if Install Process
+       stat:
+           path: "{{syncFilePath }}/{{dc}}/{{env}}/.INSTALL_CLIENT"
+       register: install_file
+
+     - name: Check if uninstall  process
+       stat:
+             path: "{{syncFilePath}}/{{dc}}/{{env}}/.UNINSTALL_CLIENT"
+       register: uninstall_file
+
+     - shell: cat {{syncFilePath}}/{{dc}}/{{env}}/{{installFile}}
+       register: client_name_install
+       when: install_file.stat.exists == True
+
+     - shell: cat {{syncFilePath}}/{{dc}}/{{env}}/{{uninstallFile}}
+       register: client_name_uninstall
+       when: uninstall_file.stat.exists == True
+
+     - name: set client name
+       set_fact:
+         client_name: "{{ client_name_install.stdout_lines[0] | to_yaml | replace('\n...\n', '')}}"
+       when: install_file.stat.exists == True
+
+     - name: set client name
+       set_fact:
+         client_name: "{{ client_name_uninstall.stdout_lines[0] | to_yaml | replace('\n...\n', '')}}"
+       when: uninstall_file.stat.exists == True
+
+     - name:
+       set_fact:
+            install_file: "{{install_file}}"
+     - name:
+       set_fact:
+            uninstall_file: "{{uninstall_file}}"
+
+     - name: set ai Host using shell
+       shell: grep AI_HOST= {{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{client_name}} | cut -f2 -d=
+       register: ai_host
+
+     - name:
+       set_fact:
+            ai_host: "{{ai_host.stdout_lines[0]}}"
+
+     - name: set MS ADMIN host
+       shell: grep MS_ADMIN_HOST= {{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{client_name}} | cut -f2 -d=
+       register: ms_host
+
+     - name:
+       set_fact:
+            ms_admin_host: "{{ms_host.stdout_lines[0]}}"
+
+     - name: set ES ADMIN host
+       shell: grep ES_ADMIN_HOST= {{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{client_name}} | cut -f2 -d=
+       register: es_host
+
+     - name:
+       set_fact:
+            es_host: "{{es_host.stdout_lines[0]}}"
+
+     - name: set DB Host
+       shell: grep DB_HOST= {{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{client_name}} | cut -f2 -d=
+       register: db_host
+
+     - name:
+       set_fact:
+            db_host: "{{db_host.stdout_lines[0]}}"
+
+
+
+#- hosts: localhost
+#  gather_facts: no
+#  vars_files:
+#      - ./common/vars/main.yml
+#  tasks:
+#    - name: check local directory structure
+#      include: oneclick/syncController/tasks/controller.yaml
+#
+#    - name: check point 1
+#      debug: msg={{ client_name }}
+
+
+# START OF DB JOB
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+    - name: Pre-requisites
+      include: oneclick/initialize/tasks/check.yaml
+
+- hosts: "{{ hostvars['localhost']['db_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+#  roles:
+#      - oneclick/dbJob
+  tasks:
+    - include_role:
+        name: oneclick/dbJob
+      when: hostvars['localhost']['install_file'].stat.exists == True
+
+# END OF DB JOB
+#
+# START JOB 1
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+    - oneclick/initialize
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: 01_beginInstall.pl
+
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+      - oneclick/msxxJob
+
+#END OF JOB 1
+#
+#START OF MS_ADMIN JOB 2
+
+- hosts: "{{ hostvars['localhost']['ms_admin_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+    - oneclick/initialize
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: 02_msAdmin.pl
+
+- hosts: "{{ hostvars['localhost']['ms_admin_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+      - oneclick/msxxJob
+
+#END OF MS_ADMIN JOB 2
+#
+#START OF ES_ADMIN JOB 3
+
+- hosts: "{{ hostvars['localhost']['es_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+#  roles:
+#    - oneclick/initialize
+  tasks:
+    - include_role:
+        name: oneclick/initialize
+      when: hostvars['localhost']['install_file'].stat.exists == True
+
+- hosts: "{{ hostvars['localhost']['es_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+      - name: Copy ES files
+        copy: 
+           src: "{{ syncFilePath }}{{item}}"
+           dest: /tmp/aiRelease/.
+        with_items:
+            - "{{ esServiceFiles }}"
+        when: hostvars['localhost']['install_file'].stat.exists == True
+        become: yes
+        become_user: root
+        become_method: sudo
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: 03_esAdmin.pl
+
+- hosts: "{{ hostvars['localhost']['es_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+#  roles:
+#      - oneclick/msxxJob
+  tasks:
+    - include_role:
+        name: oneclick/msxxJob
+      when: hostvars['localhost']['install_file'].stat.exists == True
+
+# END OF ES_ADMIN JOB 3
+#
+# START OF JOB 4 (AI HOST)
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: 04_PostValidation.pl
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+      - oneclick/msxxJob
+
+# END OF JOB 4 (AI HOST)
+#
+# START OF JOB 5 (ES HOST)
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: 05_UpdateTrading.pl
+
+- hosts: "{{ hostvars['localhost']['es_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+      - oneclick/msxxJob
+
+# END OF JOB 5 (ES HOST)
+#
+# START OF JOB 6 (AI HOST)
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: 06_FinalStep.pl
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  #roles:
+  #    - oneclick/msxxJob
+  tasks:
+    - include_role:
+        name: oneclick/msxxJob
+      when: hostvars['localhost']['install_file'].stat.exists == True
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+     - name: Copy other leg property file to ai host as TWO
+       copy:
+        src: "{{syncFilePath}}{{dc}}/{{env}}/leg2/ai.properties.{{ hostvars['localhost']['client_name'] }}"
+        dest: "/tmp/aiRelease/ai.properties.two.{{ hostvars['localhost']['client_name'] }}"
+       become: yes
+       become_user: root
+       become_method: sudo
+
+
+# END OF JOB 6 (AI HOST)
+#
+# START OF MISC SCRIPT (AI HOST)
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: miscScript.pl
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  #roles:
+  #    - oneclick/msxxJob
+  tasks:
+    - include_role:
+        name: oneclick/msxxJob
+      when: hostvars['localhost']['install_file'].stat.exists == True
+
+#END OF MISC SCRIPT (AI HOST)
+#
+#START OF POST INSTALL (AI HOST)
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: postInstall.pl
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+      - oneclick/msxxJob
+
+#END OF POST INSTALL (AI HOST)
+#
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: "SET LEG1 AI HOST TO a variable for later use: to copy ssh keyes"
+       set_fact:
+           ai_leg1_host: "{{ hostvars['localhost']['ai_host'] }}"
+
+#START OF CLEAN UP 
+
+- hosts: "{{ hostvars['localhost']['ms_admin_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+    - oneclick/cleanup
+
+- hosts: "{{ hostvars['localhost']['es_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+    - oneclick/cleanup
+
+######################################################################
+# END OF LEG 1 Installation                                          #
+######################################################################
+
+######################################################################
+# LEG 2 Installation                                                 #
+######################################################################
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           leg: "leg2"
+
+- hosts: lit-vwmsm-p001.gxsonline.net
+  vars_files:
+      - ./common/vars/main.yml
+  gather_facts: no
+  tasks:
+    - include_role:
+       name: oneclick/syncController
+
+- hosts: localhost
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+     - name: check if Install Process
+       stat:
+           path: "{{syncFilePath }}/{{dc}}/{{env}}/.INSTALL_CLIENT"
+       register: install_file
+
+     - name: Check if uninstall  process
+       stat:
+             path: "{{syncFilePath}}/{{dc}}/{{env}}/.UNINSTALL_CLIENT"
+       register: uninstall_file
+
+     - shell: cat {{syncFilePath}}/{{dc}}/{{env}}/{{installFile}}
+       register: client_name_install
+       when: install_file.stat.exists == True
+
+     - shell: cat {{syncFilePath}}/{{dc}}/{{env}}/{{uninstallFile}}
+       register: client_name_uninstall
+       when: uninstall_file.stat.exists == True
+
+     - name: set client name
+       set_fact:
+         client_name: "{{ client_name_install.stdout_lines[0] | to_yaml | replace('\n...\n', '')}}"
+       when: install_file.stat.exists == True
+
+     - name: set client name
+       set_fact:
+         client_name: "{{ client_name_uninstall.stdout_lines[0] | to_yaml | replace('\n...\n', '')}}"
+       when: uninstall_file.stat.exists == True
+
+     - name:
+       set_fact:
+            install_file: "{{install_file}}"
+     - name:
+       set_fact:
+            uninstall_file: "{{uninstall_file}}"
+
+     - name: set ai Host using shell
+       shell: grep AI_HOST= {{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{client_name}} | cut -f2 -d=
+       register: ai_host
+
+     - name:
+       set_fact:
+            ai_host: "{{ai_host.stdout_lines[0]}}"
+
+     - name: set MS ADMIN host
+       shell: grep MS_ADMIN_HOST= {{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{client_name}} | cut -f2 -d=
+       register: ms_host
+
+     - name:
+       set_fact:
+            ms_admin_host: "{{ms_host.stdout_lines[0]}}"
+
+     - name: set ES ADMIN host
+       shell: grep ES_ADMIN_HOST= {{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{client_name}} | cut -f2 -d=
+       register: es_host
+
+     - name:
+       set_fact:
+            es_host: "{{es_host.stdout_lines[0]}}"
+
+     - name: set DB Host
+       shell: grep DB_HOST= {{syncFilePath}}{{dc}}/{{env}}/{{ hostvars['localhost']['leg'] }}/ai.properties.{{client_name}} | cut -f2 -d=
+       register: db_host
+
+     - name:
+       set_fact:
+            db_host: "{{db_host.stdout_lines[0]}}"
+
+# START JOB 1
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+    - oneclick/initialize
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: 01_beginInstall.pl
+
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+      - oneclick/msxxJob
+
+#END OF JOB 1
+#
+#START OF MS_ADMIN JOB 2
+
+- hosts: "{{ hostvars['localhost']['ms_admin_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+    - oneclick/initialize
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: 02_msAdmin.pl
+
+- hosts: "{{ hostvars['localhost']['ms_admin_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+      - oneclick/msxxJob
+
+#END OF MS_ADMIN JOB 2
+#
+#START OF ES_ADMIN JOB 3
+
+- hosts: "{{ hostvars['localhost']['es_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+#  roles:
+#    - oneclick/initialize
+  tasks:
+    - include_role:
+        name: oneclick/initialize
+      when: hostvars['localhost']['install_file'].stat.exists == True
+
+- hosts: "{{ hostvars['localhost']['es_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+      - name: Copy ES files
+        copy: 
+           src: "{{ syncFilePath }}{{item}}"
+           dest: /tmp/aiRelease/.
+        with_items:
+            - "{{ esServiceFiles }}"
+        when: hostvars['localhost']['install_file'].stat.exists == True
+        become: yes
+        become_user: root
+        become_method: sudo
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: 03_esAdmin.pl
+
+- hosts: "{{ hostvars['localhost']['es_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+#  roles:
+#      - oneclick/msxxJob
+  tasks:
+    - include_role:
+        name: oneclick/msxxJob
+      when: hostvars['localhost']['install_file'].stat.exists == True
+
+# END OF ES_ADMIN JOB 3
+#
+# START OF JOB 4 (AI HOST)
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: 04_PostValidation.pl
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+      - oneclick/msxxJob
+
+# END OF JOB 4 (AI HOST)
+#
+# START OF JOB 5 (ES HOST)
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: 05_UpdateTrading.pl
+
+- hosts: "{{ hostvars['localhost']['es_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+      - oneclick/msxxJob
+
+# END OF JOB 5 (ES HOST)
+#
+# START OF JOB 6 (AI HOST)
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: 06_FinalStep.pl
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  #roles:
+  #    - oneclick/msxxJob
+  tasks:
+    - include_role:
+        name: oneclick/msxxJob
+      when: hostvars['localhost']['install_file'].stat.exists == True
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+     - name: Copy other leg property file to ai host as TWO
+       copy:
+        src: "{{syncFilePath}}{{dc}}/{{env}}/leg1/ai.properties.{{ hostvars['localhost']['client_name'] }}"
+        dest: "/tmp/aiRelease/ai.properties.two.{{ hostvars['localhost']['client_name'] }}"
+       become: yes
+       become_user: root
+       become_method: sudo
+
+# END OF JOB 6 (AI HOST)
+#
+# START OF SSH JOB (AI HOST)
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: 061_updateSSHKeys.pl
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+#  roles:
+#      - oneclick/msxxJob
+  tasks:
+    - include_role:
+        name: oneclick/msxxJob
+      when: hostvars['localhost']['install_file'].stat.exists == True
+
+
+# END OF SSH JOB (AI HOST)
+#
+# START OF MISC SCRIPT (AI HOST)
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: miscScript.pl
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  #roles:
+  #    - oneclick/msxxJob
+  tasks:
+    - include_role:
+        name: oneclick/msxxJob
+      when: hostvars['localhost']['install_file'].stat.exists == True
+
+#END OF MISC SCRIPT (AI HOST)
+#
+#START OF POST INSTALL (AI HOST)
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: postInstall.pl
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+      - oneclick/msxxJob
+
+#END OF POST INSTALL (AI HOST)
+#
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: "SET LEG2 AI HOST TO a variable for later use: to copy ssh keyes"
+       set_fact:
+           ai_leg2_host: "{{ hostvars['localhost']['ai_host'] }}"
+
+######################################################################
+# END OF LEG 2 Installation                                          #
+######################################################################
+
+#START OF JOB 9 (UPDATE SSH AUTH) on Both AI HOSTS
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+     - name: Copy other leg property file to ai host as TWO
+       copy:
+        src: "{{syncFilePath}}{{dc}}/{{env}}/leg1/ai.properties.{{ hostvars['localhost']['client_name'] }}"
+        dest: "/tmp/aiRelease/ai.properties.two.{{ hostvars['localhost']['client_name'] }}"
+       become: yes
+       become_user: root
+       become_method: sudo
+
+- hosts: "{{ hostvars['localhost']['ai_leg1_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+     - name: Copy other leg property file to ai host as TWO
+       copy:
+        src: "{{syncFilePath}}{{dc}}/{{env}}/leg2/ai.properties.{{ hostvars['localhost']['client_name'] }}"
+        dest: "/tmp/aiRelease/ai.properties.two.{{ hostvars['localhost']['client_name'] }}"
+       become: yes
+       become_user: root
+       become_method: sudo
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+     - name: Copy other leg property file to ai host as TWO
+       copy:
+        src: "{{syncFilePath}}{{dc}}/{{env}}/leg1/ai.properties.{{ hostvars['localhost']['client_name'] }}"
+        dest: "/tmp/aiRelease/otherleg_ai.properties"
+       become: yes
+       become_user: root
+       become_method: sudo
+
+- hosts: "{{ hostvars['localhost']['ai_leg1_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+     - name: Copy other leg property file to ai host as TWO
+       copy:
+        src: "{{syncFilePath}}{{dc}}/{{env}}/leg2/ai.properties.{{ hostvars['localhost']['client_name'] }}"
+        dest: "/tmp/aiRelease/otherleg_ai.properties"
+       become: yes
+       become_user: root
+       become_method: sudo
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: 061_updateSSHKeys.pl
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+    - include_role:
+        name: oneclick/msxxJob
+      when: hostvars['localhost']['install_file'].stat.exists == True
+
+- hosts: "{{ hostvars['localhost']['ai_leg1_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+    - include_role:
+        name: oneclick/msxxJob
+      when: hostvars['localhost']['install_file'].stat.exists == True
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+     - find: paths="/tmp/aiRelease" recurse=no patterns="*ssh_key.txt"
+       register: files_to_copy
+
+     - fetch:
+            src: "{{ item.path }}"
+            dest: "{{syncFilePath}}{{dc}}/{{env}}/"
+            flat: yes
+       with_items: "{{ files_to_copy.files }}"
+       become: yes
+       become_user: root
+       become_method: sudo
+       when: hostvars['localhost']['install_file'].stat.exists == True
+
+- hosts: "{{ hostvars['localhost']['ai_leg1_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+     - find: paths="/tmp/aiRelease" recurse=no patterns="*ssh_key.txt"
+       register: files_to_copy
+
+     - fetch:
+            src: "{{ item.path }}"
+            dest: "{{syncFilePath}}{{dc}}/{{env}}/"
+            flat: yes
+       with_items: "{{ files_to_copy.files }}"
+       become: yes
+       become_user: root
+       become_method: sudo
+       when: hostvars['localhost']['install_file'].stat.exists == True
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+     - name: Copy other leg property file to ai host as otherleg
+       copy:
+        src: "{{ item }}"
+        dest: "/tmp/aiRelease/"
+       with_fileglob:
+         - "{{syncFilePath}}{{dc}}/{{env}}/*ssh_key.txt"
+       when: hostvars['localhost']['install_file'].stat.exists == True
+       become: yes
+       become_user: root
+       become_method: sudo
+
+- hosts: "{{ hostvars['localhost']['ai_leg1_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+     - name: Copy other leg property file to ai host as otherleg
+       copy:
+        src: "{{ item }}"
+        dest: "/tmp/aiRelease/"
+       with_fileglob:
+         - "{{syncFilePath}}{{dc}}/{{env}}/*ssh_key.txt"
+       when: hostvars['localhost']['install_file'].stat.exists == True
+       become: yes
+       become_user: root
+       become_method: sudo
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: 07_exchangeSshKeys.pl
+
+- hosts: "{{ hostvars['localhost']['ai_leg1_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+    - include_role:
+        name: oneclick/msxxJob
+      when: hostvars['localhost']['install_file'].stat.exists == True
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+    - include_role:
+        name: oneclick/msxxJob
+      when: hostvars['localhost']['install_file'].stat.exists == True
+
+#END OF JOB 9 (UPDATE SSH AUTH) on Both AI HOSTS
+#
+#START OF JOB 10 (CLOUD USER - PRODUCTION ONLY
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+     - name: set the script to run
+       set_fact:
+           script_to_run: cloudUser.pl
+
+- hosts: lit-vafsm-p002.gxsonline.net
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+    - include_role:
+        name: oneclick/initialize
+      when: env == "prod" and hostvars['localhost']['install_file'].stat.exists == True
+
+- hosts: lit-vafsm-p002.gxsonline.net
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+    - include_role:
+        name: oneclick/msxxJob
+      when: env == "prod" and hostvars['localhost']['install_file'].stat.exists == True
+
+- hosts: all-vafsm-p002.gxsonline.net
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+    - include_role:
+        name: oneclick/initialize
+      when: env == "prod" and hostvars['localhost']['install_file'].stat.exists == True
+
+- hosts: all-vafsm-p002.gxsonline.net
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+    - include_role:
+        name: oneclick/msxxJob
+      when: env == "prod" and hostvars['localhost']['install_file'].stat.exists == True
+
+# END OF JOB 10
+#
+#START OF CLEAN UP 
+
+- hosts: "{{ hostvars['localhost']['ai_leg1_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+    - oneclick/cleanup
+
+
+- hosts: "{{ hostvars['localhost']['ai_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+    - oneclick/cleanup
+
+- hosts: "{{ hostvars['localhost']['ms_admin_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+    - oneclick/cleanup
+
+- hosts: "{{ hostvars['localhost']['es_host'] }}"
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  roles:
+    - oneclick/cleanup
+
+- hosts: localhost
+  gather_facts: no
+  vars_files:
+      - ./common/vars/main.yml
+  tasks:
+    - name: cleanup files on controller
+      include: oneclick/cleanup/tasks/local_cleanup.yaml
+
+
+- hosts: lit-vwmsm-p001.gxsonline.net
+  vars_files:
+      - ./common/vars/main.yml
+  gather_facts: no
+  tasks:
+    - name: cleanup files on controller
+      include: oneclick/cleanup/tasks/repo_cleanup.yaml
+

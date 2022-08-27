@@ -1,0 +1,36 @@
+---
+#
+#
+#
+
+
+- name: check if Install Process
+  stat:
+      path: "{{ msxx_1click_web_home }}/{{dc}}/{{env}}/{{installFile}}"
+  register: install_file
+
+- name: Check if uninstall  process
+  stat:
+        path: "{{ msxx_1click_web_home }}/{{dc}}/{{env}}/{{uninstallFile}}"
+  register: uninstall_file
+
+- block:
+  - name: remove install file from local temp directory
+    file:
+        path: "{{ msxx_1click_web_home }}/{{dc}}/{{env}}/{{installFile}}"
+        state: absent
+    become: yes
+    become_user: root
+    become_method: sudo
+    when: install_file.stat.exists == True
+
+- block:
+  - name: remove uninstall file from local temp directory
+    file:
+        path: "{{ msxx_1click_web_home }}/{{dc}}/{{env}}/{{uninstallFile}}"
+        state: absent
+    become: yes
+    become_user: root
+    become_method: sudo
+    when: uninstall_file.stat.exists == True
+
