@@ -5,6 +5,9 @@ A request comes from business manager to deploy a retailer's instance to process
 
 **Development and Deployment was completed in 6 weeks.**
 
+api_user@pam!terraform_token
+3974a702-dc24-4970-b4ec-1f7c8d079346
+
 ###### End Results
 1. Reduced deployment time to 16-man hours from 80-man hours.
 2. Loosely tied to tools like Bladelogic
