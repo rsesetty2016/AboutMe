@@ -1,5 +1,11 @@
 #### Proxmox
 
+Debain OS
+Qemu/KVM
+LXC Containers
+Corosync Cluster Engine
+Proxmox Cluster File System
+
 1. Build Cloud Image
    1. wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
    2. sudo apt update -y && sudo apt install libguestfs-tools -y (This is required to get virt-customize tool)
