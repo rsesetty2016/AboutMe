@@ -18,7 +18,8 @@ Proxmox Cluster File System
     virt-customize -a jammy-server-cloudimg-amd64.img --run-command "usermod -a -G sudo proxuser"
     virt-customize -a jammy-server-cloudimg-amd64.img --run-command "sed -i '/^%sudo.*/a %LinuxAdmins    ALL=(ALL:ALL) ALL' /etc/sudoers"
     virt-customize -a jammy-server-cloudimg-amd64.img --run-command "apt install -y realmd libnss-sss libpam-sss sssd sssd-tools adcli samba-common-bin oddjob oddjob-mkhomedir packagekit"
-    virt-customize -a jammy-server-cloudimg-amd64.img --run-command "apt install -y nfs-kernel-server nfs-common"
+    virt-customize -a jammy-server-cloudimg-amd64.img --run-command "apt install -y nfs-kernel-server nfs-common resolvconf"
+    virt-customize -a jammy-server-cloudimg-amd64.img --run-command "systemctl enable resolvconf"
    4. Run the following commands:
     qm create 9000 --name "ubuntu-2204-cloudinit-template" --memory 2048 --cores 2 --net0 virtio,bridge=vmbr0
     qm importdisk 9000 jammy-server-cloudimg-amd64.img local-lvm
