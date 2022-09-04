@@ -6,6 +6,11 @@ LXC Containers
 Corosync Cluster Engine
 Proxmox Cluster File System
 
+
+pveum role add terraform-role -privs "VM.Allocate VM.Clone VM.Config.CDROM VM.Config.CPU VM.Config.Cloudinit VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Monitor VM.Audit VM.PowerMgmt Datastore.AllocateSpace Datastore.Audit"
+
+pveum user add terraform@pve
+pveum aclmod / -user terraform@pve -role terraform-role
 1. Build Cloud Image
    1. wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
    2. sudo apt update -y && sudo apt install libguestfs-tools -y (This is required to get virt-customize tool)
