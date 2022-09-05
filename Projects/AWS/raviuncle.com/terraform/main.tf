@@ -6,5 +6,5 @@ provider "aws" {
 
 resource "aws_instance" "test-vm" {
     ami = "ami-0998c31db74342579"
-    instance_type = "t1.micro"
+    instance_type = "t2.micro"
 }
