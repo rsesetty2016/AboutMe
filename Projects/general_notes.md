@@ -122,3 +122,8 @@ terraform get.
 •providers.tf – explicit declaration for the AWS provider
 •versions.tf – Terraform settings and provider version locking
 
+export TF_DATA_DIR=/projects/providers --> to download providers to a common locatio, instead of each directory from which terraform command would be run. 
+
+export TF_VAR_pm_api_url="https://<hostname/ip>:8006/api2/json"
+export TF_VAR_pm_api_token_id='<token_id>'
+export TF_VAR_pm_api_token_secret="<secret>"
