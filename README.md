@@ -1,12 +1,19 @@
 #### Ravi Sesetty
 ###### DevOps & Automation Engineer
 
+[Technologies Associated With](./Projects/technology.md)
 
 I have been working as IT specialist for over 25 years, covering from Traffic management to troubleshooting and monitoring of core systems and applications. I have been involved in automation and development of modules wherever necessary.
 
+Have written more than 100,000 lines of code, worked as Principal Systems Administrator for over 3 years, around 4 years as Application Deployment Engineer, over 200 weeks of on-call support, over 2 years of BIG-IP F5 Loadbalancer support engineer, more than 100 Ansible playbooks, over 50 puppet manifests, around 250 Bladelogic jobs, deployed over 1000 VMs,  involved in 3 new datacenter setups, about 25 applications migrated between data centers, 10 major applications migrated to Cloud, and involved in periodic disaster recovery activities. 
+
 Started off as a C programmer, and part time oracle database administrator, involved in different projects before becoming Solaris and Windows NT administrator. Moved to USA in 2000, started off as Sr. Application Engineer at Cisco Systems, CA. Joined GE/GXS in late 2000, handled multiple projects as Sr. Systems Analyst. I had handled different projects that involved with administration of Linux servers, WebLogic clustering, Tomcat containers, and Apache mod_proxy load balancing etc. During that tenure I was responsible for updating Oracle database schema in QA and Dev environments. Later moved onto Federal and local County, to automate and design DevOps pipelines with Virtualization and Containerization. I was responsible for designing systems that required traditional clustering methods, applications that were suitable to deploy in container model. I have handled projects that were migrated from on-premises to cloud, and projects with hybrid model.
 
-Developed a tool, much similar to **Terraform**, to automate deployment of applications. It handles provisioning of infrastructure required by applications. It had remote locking to avoid any concurrent issues, install dependencies, handle pre and post implementation tasks. 
+Developed a tool, much similar to **Terraform**, to automate deployment of applications. It handles provisioning of infrastructure required by applications. It had remote locking to avoid any concurrent issues, install dependencies, handle pre and post implementation tasks.
+
+Overseen and actively involved in development and deployment of applications that were developed based on NodeJS, React, Angular, Django, Yii, Springboot, MySQL, Postgres, MS SQL, Oracle and Mongodb. 
+
+Python, Java and Perl are my preferences to implement any custom solutions for the businesses. 
 
 Automation is my key strength and writing modules that are independent of third-party tools, so that business can migrate off easily. 
 
