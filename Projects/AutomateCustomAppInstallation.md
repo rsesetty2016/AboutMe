@@ -5,8 +5,8 @@ A request comes from business manager to deploy a retailer's instance to process
 
 **Development and Deployment was completed in 6 weeks.**
 
-api_user@pam!terraform_token
-3974a702-dc24-4970-b4ec-1f7c8d079346
+###### The Big Picture
+![1click](../images/1click.png)
 
 ###### End Results
 1. Reduced deployment time to 16-man hours from 80-man hours.
@@ -47,8 +47,7 @@ All this process takes about 80 man hours.
 6. Physical "login" to hosts must be elimiated.
 7. Provide an interface to populate custom values and schedule/unschedule "install" or "rollback" operations.
 
-###### The Big Picture
-![1click](../images/1click.png)
+
 
 ###### The Implementation
 1. About 6000 lines of code written in Perl
