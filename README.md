@@ -1,9 +1,8 @@
 #### Ravi Sesetty
-<br />
-
 ###### DevOps & Automation Engineer
 
 [Technologies Associated With](./Projects/technology.md)
+
 [Work Experience](#resume)
 
 I have been working as IT specialist for over 25 years, covering from Traffic management to troubleshooting and monitoring of core systems and applications. I have been involved in automation and development of modules wherever necessary.
