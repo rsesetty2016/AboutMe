@@ -12,6 +12,7 @@
 > **Prometheus/Grafana, Zabbix, ELK Stack, GrayLog**
 > 
 > I have deployed Prometheus/Grafana to monitor K8s cluster. Deployed ELK cluster using Docker, and familiar with integrating applications with ELM, Splulnk and Graylog.
+> **Apache Solr** Search Engine
 
 #### Operating Systems
 > **Linux, Windows, Solaris, and HP-UX**
